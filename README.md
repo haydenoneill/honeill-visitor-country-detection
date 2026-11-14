@@ -31,8 +31,8 @@ The response is sent with no-cache headers, so a CDN or page cache never shares 
 
 ## Setup
 
-1. Create a free MaxMind account and a license key: <https://www.maxmind.com/en/geolite2/signup>
-2. Go to **Settings → Honeill Visitor Country Detection**, enter your account ID and license key, and click **Save & download database**.
+1. Create a free MaxMind account and a licence key: <https://www.maxmind.com/en/geolite2/signup>
+2. Go to **Settings → Honeill Visitor Country Detection**, enter your account ID and licence key, and click **Save & download database**.
 3. The database downloads straight away and refreshes weekly through WP-Cron.
 
 You can keep the credentials out of the database by defining them in `wp-config.php`:
@@ -42,7 +42,7 @@ define( 'HONEILL_VISITOR_COUNTRY_DETECTION_ACCOUNT_ID', '123456' );
 define( 'HONEILL_VISITOR_COUNTRY_DETECTION_LICENSE_KEY', 'your-key' );
 ```
 
-The GeoLite2 database is **not** bundled, because MaxMind's license doesn't allow redistribution. Each site downloads its own copy with its own key.
+The GeoLite2 database is **not** bundled, because MaxMind's licence doesn't allow redistribution. Each site downloads its own copy with its own key.
 
 ## Security model
 
@@ -51,9 +51,13 @@ The GeoLite2 database is **not** bundled, because MaxMind's license doesn't allo
   - Replace the IP entirely: `honeill_visitor_country_detection_client_ip`
 - **Licensed file:** it is stored in `wp-content/uploads` under a random folder *and* file name, and blocked by `.htaccess` on Apache. It has no guessable URL, even on servers that list folder contents.
 - **Downloads:** MaxMind's current endpoint is used with HTTP Basic auth, so the key is never put in a URL. The storage redirect is followed without credentials. Size and unpacked size are capped. The archive is parsed without Phar. Every download is opened and checked to be a Country database before it atomically replaces the current one.
-- The license key is write-only in the admin and scrubbed from every error message.
+- The licence key is write-only in the admin and scrubbed from every error message.
 
 Use the country for content, never for access control: a VPN changes it.
+
+## Usage statistics (opt-in)
+
+The plugin can send basic, non-personal site information (site address, WordPress/PHP/database versions, language, theme, web server, memory limit, and user/post/page/media counts) to its author once a week, **only if an administrator opts in**. It's off by default, can be turned off at any time in the plugin settings, and opting out or deleting the plugin erases the site's data. Details: <https://honeill-plugin-telemetry.vercel.app/privacy>. The code is in `includes/telemetry.php`.
 
 ## Development
 
@@ -61,11 +65,12 @@ This repository mirrors the plugin as published on WordPress.org (`trunk` and ta
 
 ```
 honeill-visitor-country-detection.php   main plugin file
+includes/telemetry.php                  opt-in usage statistics
 uninstall.php                           removes options, schedule and database (every site on multisite)
 vendor/                                 maxmind-db/reader + Composer autoloader
 readme.txt                              WordPress.org readme (changelog lives here)
 ```
 
-## License
+## Licence
 
 GPLv2 or later. See [LICENSE](LICENSE). This product includes GeoLite2 Data created by MaxMind, available from <https://www.maxmind.com>. It is not affiliated with MaxMind, Inc.

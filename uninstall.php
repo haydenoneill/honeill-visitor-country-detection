@@ -38,11 +38,22 @@ function honeill_visitor_country_detection_uninstall_site()
         @rmdir($dir); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged, WordPress.WP.AlternativeFunctions -- folder may be non-empty/already gone; failure is harmless
     }
 
-    foreach (array('license_key', 'account_id', 'last_updated', 'last_error', 'folder', 'file', 'version') as $option) {
+    // If this site opted in to usage statistics, ask for its data to be erased.
+    $install_id = (string) get_option('honeill_visitor_country_detection_install_id', '');
+    if ($install_id !== '' && get_option('honeill_visitor_country_detection_telemetry') === 'yes') {
+        wp_safe_remote_post('https://honeill-plugin-telemetry.vercel.app/api/v1/forget', array(
+            'timeout' => 5,
+            'headers' => array('Content-Type' => 'application/json'),
+            'body'    => wp_json_encode(array('install_id' => $install_id, 'plugin' => 'honeill-visitor-country-detection')),
+        ));
+    }
+
+    foreach (array('license_key', 'account_id', 'last_updated', 'last_error', 'folder', 'file', 'version', 'telemetry', 'install_id') as $option) {
         delete_option('honeill_visitor_country_detection_' . $option);
     }
 
     wp_clear_scheduled_hook('honeill_visitor_country_detection_refresh');
+    wp_clear_scheduled_hook('honeill_visitor_country_detection_telemetry_send');
 }
 
 if (is_multisite()) {

@@ -1,8 +1,8 @@
 <?php
 /**
  * Plugin Name: Honeill Visitor Country Detection
- * Description: Show the right content to the right country. Detects a visitor's country from their IP using MaxMind GeoLite2 — auto-downloaded and kept updated with your own license key — and exposes it through a filter and a REST endpoint.
- * Version: 1.3.0
+ * Description: Show the right content to the right country. Detects a visitor's country from their IP using MaxMind GeoLite2 — auto-downloaded and kept updated with your own licence key — and exposes it through a filter and a REST endpoint.
+ * Version: 1.4.0
  * Author: Hayden O'Neill
  * License: GPLv2 or later
  * License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -28,6 +28,9 @@ if (is_readable($honeill_visitor_country_detection_autoload)) {
     require_once $honeill_visitor_country_detection_autoload;
 }
 unset($honeill_visitor_country_detection_autoload);
+
+require_once __DIR__ . '/includes/telemetry.php';
+Honeill_Visitor_Country_Detection_Telemetry::boot(__FILE__, '1.4.0', array('settings_page_honeill-visitor-country-detection'));
 
 /* ---------------------------------------------------------------------------
  * Storage paths + credentials
@@ -105,7 +108,7 @@ function honeill_visitor_country_detection_db_path() {
     return honeill_visitor_country_detection_dir() . '/' . $file;
 }
 
-/** License key: a wp-config constant wins (keeps it out of the DB); otherwise the saved option. */
+/** Licence key: a wp-config constant wins (keeps it out of the DB); otherwise the saved option. */
 function honeill_visitor_country_detection_license_key() {
     if (defined('HONEILL_VISITOR_COUNTRY_DETECTION_LICENSE_KEY') && HONEILL_VISITOR_COUNTRY_DETECTION_LICENSE_KEY) {
         return (string) HONEILL_VISITOR_COUNTRY_DETECTION_LICENSE_KEY;
@@ -396,7 +399,7 @@ function honeill_visitor_country_detection_update_database() {
 function honeill_visitor_country_detection_download_database() {
     $key = honeill_visitor_country_detection_license_key();
     if ($key === '') {
-        return new WP_Error('honeill_visitor_country_detection_no_key', __('No MaxMind license key is set.', 'honeill-visitor-country-detection'));
+        return new WP_Error('honeill_visitor_country_detection_no_key', __('No MaxMind licence key is set.', 'honeill-visitor-country-detection'));
     }
     if (!function_exists('gzdecode')) {
         return new WP_Error('honeill_visitor_country_detection_no_zlib', __('The PHP zlib extension is required to unpack the database. Ask your host to enable it.', 'honeill-visitor-country-detection'));
@@ -423,7 +426,7 @@ function honeill_visitor_country_detection_download_database() {
     unset($archive);
 
     if ($mmdb === '') {
-        return new WP_Error('honeill_visitor_country_detection_extract', __('The download wasn\'t a valid GeoLite2 archive. Check the license key and account ID, then try again.', 'honeill-visitor-country-detection'));
+        return new WP_Error('honeill_visitor_country_detection_extract', __('The download wasn\'t a valid GeoLite2 archive. Check the licence key and account ID, then try again.', 'honeill-visitor-country-detection'));
     }
 
     $dest = honeill_visitor_country_detection_db_path();
@@ -512,7 +515,7 @@ function honeill_visitor_country_detection_fetch_archive($key, $account_id) {
     }
 
     if ($code === 401 || $code === 403) {
-        return new WP_Error('honeill_visitor_country_detection_auth', __('MaxMind rejected the license key or account ID (HTTP 401/403).', 'honeill-visitor-country-detection'));
+        return new WP_Error('honeill_visitor_country_detection_auth', __('MaxMind rejected the licence key or account ID (HTTP 401/403).', 'honeill-visitor-country-detection'));
     }
     if ($code !== 200) {
         /* translators: %d: HTTP status code */
@@ -762,14 +765,14 @@ function honeill_visitor_country_detection_settings_page() {
     }
 
     if ($key !== '' && $account_id === '') {
-        echo '<div class="notice notice-warning"><p>' . esc_html__('Add your MaxMind account ID below. Without it the plugin uses MaxMind\'s older download method, which sends the license key in the URL and may stop working.', 'honeill-visitor-country-detection') . '</p></div>';
+        echo '<div class="notice notice-warning"><p>' . esc_html__('Add your MaxMind account ID below. Without it the plugin uses MaxMind\'s older download method, which sends the licence key in the URL and may stop working.', 'honeill-visitor-country-detection') . '</p></div>';
     }
 
     // Intro + how to get a key.
-    echo '<p>' . esc_html__('Enter your MaxMind account ID and license key. The plugin downloads the GeoLite2 country database immediately and refreshes it automatically every week — you never download or upload anything by hand.', 'honeill-visitor-country-detection') . '</p>';
+    echo '<p>' . esc_html__('Enter your MaxMind account ID and licence key. The plugin downloads the GeoLite2 country database immediately and refreshes it automatically every week — you never download or upload anything by hand.', 'honeill-visitor-country-detection') . '</p>';
     echo '<p>' . wp_kses_post(sprintf(
         /* translators: %s: URL to MaxMind sign-up page */
-        __('No key yet? Create a free MaxMind account, then generate a license key under Account → Manage License Keys (your account ID is shown on the same page): <a href="%s" target="_blank" rel="noopener">maxmind.com</a>.', 'honeill-visitor-country-detection'),
+        __('No key yet? Create a free MaxMind account, then generate a licence key under Account → Manage License Keys (your account ID is shown on the same page): <a href="%s" target="_blank" rel="noopener">maxmind.com</a>.', 'honeill-visitor-country-detection'),
         'https://www.maxmind.com/en/geolite2/signup'
     )) . '</p>';
 
@@ -787,7 +790,7 @@ function honeill_visitor_country_detection_settings_page() {
     }
     echo '</td></tr>';
 
-    echo '<tr><th scope="row"><label for="honeill_visitor_country_detection_license_key">' . esc_html__('MaxMind license key', 'honeill-visitor-country-detection') . '</label></th><td>';
+    echo '<tr><th scope="row"><label for="honeill_visitor_country_detection_license_key">' . esc_html__('MaxMind licence key', 'honeill-visitor-country-detection') . '</label></th><td>';
     if ($by_const) {
         echo '<p><code>' . esc_html__('Set via the HONEILL_VISITOR_COUNTRY_DETECTION_LICENSE_KEY constant in wp-config.php.', 'honeill-visitor-country-detection') . '</code></p>';
     } else {
@@ -837,7 +840,7 @@ function honeill_visitor_country_detection_settings_page() {
         $account_id !== '' ? __('Set', 'honeill-visitor-country-detection') : __('Not set (using the older download method)', 'honeill-visitor-country-detection')
     );
     honeill_visitor_country_detection_status_row(
-        __('License key', 'honeill-visitor-country-detection'),
+        __('Licence key', 'honeill-visitor-country-detection'),
         $key !== '' ? __('Set', 'honeill-visitor-country-detection') : __('Not set', 'honeill-visitor-country-detection')
     );
 
@@ -885,6 +888,9 @@ function honeill_visitor_country_detection_settings_page() {
     echo '<pre style="background:#fff;border:1px solid #dcdcde;padding:12px;max-width:640px;overflow:auto"><code>'
         . esc_html('GET ' . rest_url('honeill-visitor-country-detection/v1/country') . "\n\u{2192} { \"country\": \"GB\" }")
         . '</code></pre>';
+
+    echo '<h2>' . esc_html__('Usage statistics', 'honeill-visitor-country-detection') . '</h2>';
+    Honeill_Visitor_Country_Detection_Telemetry::render_setting();
 
     echo '<p class="description">' . esc_html__('This product includes GeoLite2 Data created by MaxMind, available from https://www.maxmind.com.', 'honeill-visitor-country-detection') . '</p>';
     echo '</div>';

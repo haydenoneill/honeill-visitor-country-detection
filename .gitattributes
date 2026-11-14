@@ -1,0 +1,4 @@
+# Keep GitHub-only files out of "git archive" / ZIP downloads, so they match the WordPress.org package.
+/.gitattributes export-ignore
+/.gitignore export-ignore
+/README.md export-ignore

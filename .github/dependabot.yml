@@ -1,0 +1,15 @@
+# Weekly PRs that bump SHA-pinned actions (Dependabot updates the SHA and the
+# "# vX.Y.Z" comment together). Nothing merges automatically: review and merge by hand.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7        # let a new release age a week before proposing it
+    groups:
+      actions:
+        patterns: ["*"]      # one PR for all action bumps
+    commit-message:
+      prefix: ci

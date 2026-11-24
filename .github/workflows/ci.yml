@@ -31,10 +31,12 @@ jobs:
           tools: none
           coverage: none
       - name: php -l
+        env:
+          PHP: ${{ matrix.php }}
         run: |
           fail=0
           while IFS= read -r -d '' f; do
-            php -l -n "$f" >/dev/null 2>&1 || { php -l -n "$f"; echo "::error file=$f::PHP ${{ matrix.php }} syntax error"; fail=1; }
+            php -l -n "$f" >/dev/null 2>&1 || { php -l -n "$f"; echo "::error file=$f::PHP $PHP syntax error"; fail=1; }
           done < <(find . -name '*.php' -not -path './vendor/*' -print0)
           exit $fail
 
@@ -71,9 +73,11 @@ jobs:
         with:
           persist-credentials: false
       - name: Build exactly what ships (git archive)
+        env:
+          SLUG: ${{ github.event.repository.name }}
         run: |
-          mkdir -p "build/${{ github.event.repository.name }}"
-          git archive HEAD | tar -x -C "build/${{ github.event.repository.name }}"
+          mkdir -p "build/$SLUG"
+          git archive HEAD | tar -x -C "build/$SLUG"
       - uses: wordpress/plugin-check-action@10857da14b6c2246d15402b3e69f777edcf8c12e # v1.1.9
         with:
           build-dir: build/${{ github.event.repository.name }}

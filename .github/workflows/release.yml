@@ -97,7 +97,8 @@ jobs:
       - name: GitHub release with the zip
         env:
           GH_TOKEN: ${{ github.token }}
+          ZIP: ${{ steps.deploy.outputs.zip-path }}   # via env, never interpolated into the script
         run: |
           notes=$(sed -n "/^= $VERSION/,/^= /p" readme.txt | sed '1d;$d')
-          gh release create "$VERSION" "${{ steps.deploy.outputs.zip-path }}" \
+          gh release create "$VERSION" "$ZIP" \
             --repo "$GITHUB_REPOSITORY" --verify-tag --title "$VERSION" --notes "${notes:-See readme.txt changelog.}"

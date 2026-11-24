@@ -1,0 +1,74 @@
+name: CI
+
+# Runs on every push and pull request, and as the gate inside the release workflow.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_call:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: PHP ${{ matrix.php }} syntax
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        php: ['7.4', '8.4']   # oldest supported (Requires PHP) and current
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@4424c9aab975b57bd706ee5a39c6b4334d6e4f60 # 2.40.0
+        with:
+          php-version: ${{ matrix.php }}
+          tools: none
+          coverage: none
+      - name: php -l
+        run: |
+          fail=0
+          while IFS= read -r -d '' f; do
+            php -l -n "$f" >/dev/null 2>&1 || { php -l -n "$f"; echo "::error file=$f::PHP ${{ matrix.php }} syntax error"; fail=1; }
+          done < <(find . -name '*.php' -not -path './vendor/*' -print0)
+          exit $fail
+
+  standards:
+    name: WordPress Coding Standards (report)
+    runs-on: ubuntu-latest
+    continue-on-error: true   # report-only until the existing code is clean
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@4424c9aab975b57bd706ee5a39c6b4334d6e4f60 # 2.40.0
+        with:
+          php-version: '8.4'
+          tools: cs2pr
+          coverage: none
+      - name: PHPCS (WordPress + PHPCompatibilityWP)
+        run: |
+          composer global config allow-plugins.dealerdirect/phpcodesniffer-composer-installer true
+          composer global require --quiet wp-coding-standards/wpcs:"^3" phpcompatibility/phpcompatibility-wp:"*"
+          ~/.composer/vendor/bin/phpcs --standard=WordPress,PHPCompatibilityWP --runtime-set testVersion 7.4- \
+            --extensions=php --ignore=vendor/ --report=checkstyle . | cs2pr
+
+  plugin-check:
+    name: WordPress Plugin Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Build exactly what ships (git archive)
+        run: |
+          mkdir -p "build/${{ github.event.repository.name }}"
+          git archive HEAD | tar -x -C "build/${{ github.event.repository.name }}"
+      - uses: wordpress/plugin-check-action@10857da14b6c2246d15402b3e69f777edcf8c12e # v1.1.9
+        with:
+          build-dir: build/${{ github.event.repository.name }}

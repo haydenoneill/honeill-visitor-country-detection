@@ -1,0 +1,103 @@
+name: Release to WordPress.org
+
+# Push a signed version tag (e.g. `wp-release` → 1.2.1). It only publishes if:
+#   - the tag is annotated, SSH-signed by one of @haydenoneill's GitHub signing keys,
+#     and points at a commit on main
+#   - the tag, plugin header Version and readme.txt Stable tag all match,
+#     and readme.txt has a changelog entry for it
+#   - PHP lints cleanly on the oldest and newest supported versions
+#   - WordPress Plugin Check reports no errors
+# Then it deploys to plugins.svn.wordpress.org and attaches the zip to a GitHub release.
+
+on:
+  push:
+    tags: ['[0-9]+.[0-9]+.[0-9]+']
+
+permissions: {}
+
+concurrency:
+  group: release-${{ github.repository }}
+  cancel-in-progress: false
+
+env:
+  SLUG: ${{ github.event.repository.name }}
+  VERSION: ${{ github.ref_name }}
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      already-released: ${{ steps.svn.outputs.exists }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Tag is annotated, signed by my SSH key, and on main
+        run: |
+          git fetch --force origin "refs/tags/$VERSION:refs/tags/$VERSION"
+          [ "$(git cat-file -t "$VERSION")" = tag ] || { echo "::error::$VERSION is not an annotated tag"; exit 1; }
+          curl -fsSL https://api.github.com/users/haydenoneill/ssh_signing_keys \
+            | jq -r '.[].key | "* namespaces=\"git\" " + .' > "$RUNNER_TEMP/allowed_signers"
+          [ -s "$RUNNER_TEMP/allowed_signers" ] || { echo "::error::Could not fetch signing keys"; exit 1; }
+          git -c gpg.format=ssh -c gpg.ssh.allowedSignersFile="$RUNNER_TEMP/allowed_signers" verify-tag "$VERSION" \
+            || { echo "::error::$VERSION is not signed by a trusted key"; exit 1; }
+          git merge-base --is-ancestor "$VERSION" origin/main || { echo "::error::$VERSION is not on main"; exit 1; }
+
+      - name: Versions and changelog agree
+        run: |
+          header=$(grep -m1 -iE '^[[:space:]]*\*?[[:space:]]*Version:' "$SLUG.php" | sed -E 's/.*Version:[[:space:]]*//I' | tr -d '[:space:]')
+          stable=$(grep -m1 -i 'Stable tag:' readme.txt | sed -E 's/.*Stable tag:[[:space:]]*//I' | tr -d '[:space:]')
+          echo "tag=$VERSION header=$header stable=$stable"
+          [ "$VERSION" = "$header" ] && [ "$VERSION" = "$stable" ] || { echo "::error::Tag, plugin header and Stable tag must match"; exit 1; }
+          sed -n '/^== Changelog ==/,$p' readme.txt | grep -qE "^= $VERSION( |=)" || { echo "::error::readme.txt has no '= $VERSION =' changelog entry"; exit 1; }
+
+      - name: Not already on WordPress.org
+        id: svn
+        run: |
+          command -v svn >/dev/null || { sudo apt-get update -qq && sudo apt-get install -y -qq subversion >/dev/null; }
+          if svn ls "https://plugins.svn.wordpress.org/$SLUG/tags/$VERSION" >/dev/null 2>&1; then
+            echo "::notice::$VERSION is already on WordPress.org (released with wp-release --local); skipping deploy"
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  checks:
+    needs: verify
+    if: needs.verify.outputs.already-released != 'true'
+    uses: ./.github/workflows/ci.yml
+    permissions:
+      contents: read
+
+  deploy:
+    needs: [verify, checks]
+    if: needs.verify.outputs.already-released != 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # create the GitHub release
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install Subversion
+        run: command -v svn >/dev/null || { sudo apt-get update -qq && sudo apt-get install -y -qq subversion >/dev/null; }
+
+      - name: Deploy to WordPress.org
+        id: deploy
+        uses: 10up/action-wordpress-plugin-deploy@54bd289b8525fd23a5c365ec369185f2966529c2 # 2.3.0
+        with:
+          generate-zip: true
+        env:
+          SVN_USERNAME: ${{ secrets.SVN_USERNAME }}
+          SVN_PASSWORD: ${{ secrets.SVN_PASSWORD }}
+
+      - name: GitHub release with the zip
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          notes=$(sed -n "/^= $VERSION/,/^= /p" readme.txt | sed '1d;$d')
+          gh release create "$VERSION" "${{ steps.deploy.outputs.zip-path }}" \
+            --repo "$GITHUB_REPOSITORY" --verify-tag --title "$VERSION" --notes "${notes:-See readme.txt changelog.}"
